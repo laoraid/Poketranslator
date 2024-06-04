@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포켓몬 이름 변환</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+    <style>
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        textarea, input, button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-family: monospace;
+        }
+        textarea {
+            height: 200px;
+        }
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>포켓몬 이름 변환</h1>
+        <textarea id="textInput" placeholder="여기에 텍스트를 입력하세요..."></textarea>
+        <button id="transformButton">변환</button>
+        <textarea id="textOutput" readonly placeholder="출력 결과..."></textarea>
+    </div>
+    <script>
+        document.getElementById('transformButton').addEventListener('click', () => {
+            const textInput = document.getElementById('textInput').value;
+
+            fetch('International Pokemon Names.xlsx')
+                .then(response => response.arrayBuffer())
+                .then(data => {
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    const sheetNames = ['Pokemon', 'Moves', 'Items'];
+                    const pairs = [ {}, {}, {}];
+                    const sourcelang = "en";
+                    const destlang = "ko";
+
+                    sheetNames.forEach((sheetName, index) => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                        
+                        let source = [];
+                        let dest = [];
+
+                        jsonData.forEach(row => {
+                            if (row[0] === sourcelang) {
+                                source = row.slice(1).map(cell => cell.toLowerCase());
+                            } else if (row[0] === destlang) {
+                                dest = row.slice(1).map(cell => cell.toLowerCase());
+                            }
+                        });
+
+                        source.forEach((s, i) => {
+                            pairs[index][s] = dest[i];
+                        });
+                    });
+
+                    const lines = textInput.split("\n").map(line => line.toLowerCase().trim());
+                    const transformedLines = lines.map(line => {
+                        pairs.forEach(pair => {
+                            Object.keys(pair).reverse().forEach(key => {
+                                if (line.includes(key)) {
+                                    line = line.replace(new RegExp(`\\b${key}\\b`, 'g'), pair[key]);
+                                }
+                            });
+                        });
+                        return line;
+                    });
+
+                    const transformedText = transformedLines.join("\n");
+                    document.getElementById('textOutput').value = transformedText;
+                })
+                .catch(error => console.error('Error fetching the Excel file:', error));
+        });
+    </script>
+</body>
+</html>
