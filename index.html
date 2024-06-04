@@ -12,7 +12,7 @@
             padding: 20px;
             font-family: Arial, sans-serif;
         }
-        textarea, input, button {
+        textarea, button {
             display: block;
             width: 100%;
             margin-bottom: 10px;
@@ -25,65 +25,133 @@
         button {
             cursor: pointer;
         }
+        .lang-select {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .lang-select label {
+            width: 48%;
+            display: inline-block;
+        }
+        .lang-select select {
+            width: 100%;
+            padding: 5px;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>포켓몬 이름 변환</h1>
+        <div class="lang-select">
+            <label>
+                소스 언어:
+                <select id="sourceLang">
+                    <option value="en" selected>en</option>
+                    <option value="ja">ja</option>
+                    <option value="fr">fr</option>
+                    <option value="de">de</option>
+                    <option value="es">es</option>
+                    <option value="it">it</option>
+                    <option value="ko">ko</option>
+                </select>
+            </label>
+            
+            <label>
+                목표 언어:
+                <select id="destLang">
+                    <option value="en">en</option>
+                    <option value="ja">ja</option>
+                    <option value="fr">fr</option>
+                    <option value="de">de</option>
+                    <option value="es">es</option>
+                    <option value="it">it</option>
+                    <option value="ko" selected>ko</option>
+                </select>
+            </label>
+        </div>
+        
         <textarea id="textInput" placeholder="여기에 텍스트를 입력하세요..."></textarea>
-        <button id="transformButton">변환</button>
+        <button id="transformButton">Transform Text</button>
         <textarea id="textOutput" readonly placeholder="출력 결과..."></textarea>
+        <button id="copyButton">복사하기</button>
     </div>
     <script>
         document.getElementById('transformButton').addEventListener('click', () => {
             const textInput = document.getElementById('textInput').value;
+            const sourcelang = document.getElementById('sourceLang').value;
+            const destlang = document.getElementById('destLang').value;
 
-            fetch('International Pokemon Names.xlsx')
+            // 소스 언어와 목표 언어가 같으면 변환하지 않음
+            if (sourcelang === destlang) {
+                document.getElementById('textOutput').value = textInput;
+                return;
+            }
+
+            fetch('International Pokemon Names.xlsx') // 엑셀 파일 경로
                 .then(response => response.arrayBuffer())
                 .then(data => {
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // 시트 이름 정의
                     const sheetNames = ['Pokemon', 'Moves', 'Items'];
-                    const pairs = [ {}, {}, {}];
-                    const sourcelang = "en";
-                    const destlang = "ko";
+                    const pairs = [ {}, {}, {} ];
 
                     sheetNames.forEach((sheetName, index) => {
                         const worksheet = workbook.Sheets[sheetName];
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-                        
-                        let source = [];
-                        let dest = [];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                        jsonData.forEach(row => {
-                            if (row[0] === sourcelang) {
-                                source = row.slice(1).map(cell => cell.toLowerCase());
-                            } else if (row[0] === destlang) {
-                                dest = row.slice(1).map(cell => cell.toLowerCase());
+                        // 헤더 행에서 언어 열 찾기
+                        const headers = jsonData[0];
+                        const sourceCol = headers.indexOf(sourcelang);
+                        const destCol = headers.indexOf(destlang);
+
+                        if (sourceCol === -1 || destCol === -1) {
+                            throw new Error(`Language columns not found: ${sourcelang}, ${destlang}`);
+                        }
+
+                        // 데이터 변환
+                        for (let i = 1; i < jsonData.length; i++) {
+                            const sourceValue = (jsonData[i][sourceCol] ?? "").toString().toLowerCase();
+                            const destValue = (jsonData[i][destCol] ?? "").toString().toLowerCase();
+                            if (sourceValue && destValue) { // sourceValue와 destValue가 모두 존재하는지 확인
+                                pairs[index][sourceValue] = destValue;
                             }
-                        });
-
-                        source.forEach((s, i) => {
-                            pairs[index][s] = dest[i];
-                        });
+                        }
                     });
 
-                    const lines = textInput.split("\n").map(line => line.toLowerCase().trim());
+                    // 입력 텍스트 변환
+                    const lines = textInput.split("\n");
                     const transformedLines = lines.map(line => {
+                        let lowerline = line.toLowerCase().trim();
                         pairs.forEach(pair => {
                             Object.keys(pair).reverse().forEach(key => {
-                                if (line.includes(key)) {
-                                    line = line.replace(new RegExp(`\\b${key}\\b`, 'g'), pair[key]);
-                                }
+                                lowerline = lowerline.split(key).join(pair[key]);
                             });
                         });
-                        return line;
+                        return lowerline;
                     });
 
                     const transformedText = transformedLines.join("\n");
                     document.getElementById('textOutput').value = transformedText;
                 })
                 .catch(error => console.error('Error fetching the Excel file:', error));
+        });
+
+        document.getElementById('copyButton').addEventListener('click', () => {
+            const textOutput = document.getElementById('textOutput');
+
+            // Select the text inside the textarea
+            textOutput.select();
+            textOutput.setSelectionRange(0, 99999);  // For mobile devices
+
+            // Copy the text to the clipboard
+            document.execCommand('copy');
+
+            // Optionally, you can provide user feedback
+            alert('텍스트가 클립보드에 복사되었습니다!');
         });
     </script>
 </body>
