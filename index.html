@@ -79,80 +79,89 @@
         <button id="copyButton">복사하기</button>
     </div>
     <script>
-        document.getElementById('transformButton').addEventListener('click', () => {
-            const textInput = document.getElementById('textInput').value;
-            const sourcelang = document.getElementById('sourceLang').value;
-            const destlang = document.getElementById('destLang').value;
+		document.getElementById('transformButton').addEventListener('click', () => {
+		const textInput = document.getElementById('textInput').value;
+		const sourcelang = document.getElementById('sourceLang').value;
+		const destlang = document.getElementById('destLang').value;
 
-            // 소스 언어와 목표 언어가 같으면 변환하지 않음
-            if (sourcelang === destlang) {
-                document.getElementById('textOutput').value = textInput;
-                return;
-            }
+		// 소스 언어와 목표 언어가 같으면 변환하지 않음
+		if (sourcelang === destlang) {
+			document.getElementById('textOutput').value = textInput;
+			return;
+		}
 
-            fetch('International Pokemon Names.xlsx') // 엑셀 파일 경로
-                .then(response => response.arrayBuffer())
-                .then(data => {
-                    const workbook = XLSX.read(data, { type: 'array' });
+		fetch('International Pokemon Names.xlsx') // 엑셀 파일 경로
+			.then(response => response.arrayBuffer())
+			.then(data => {
+				const workbook = XLSX.read(data, { type: 'array' });
 
-                    // 시트 이름 정의
-                    const sheetNames = ['Moves', 'Items', 'Pokemon'];
-                    const pairs = [ {}, {}, {} ];
+				// 시트 이름 정의
+				const sheetNames = ['Moves', 'Items', 'Pokemon'];
+				const pairs = [ {}, {}, {} ];
 
-                    sheetNames.forEach((sheetName, index) => {
-                        const worksheet = workbook.Sheets[sheetName];
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+				sheetNames.forEach((sheetName, index) => {
+					const worksheet = workbook.Sheets[sheetName];
+					const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                        // 헤더 행에서 언어 열 찾기
-                        const headers = jsonData[0];
-                        const sourceCol = headers.indexOf(sourcelang);
-                        const destCol = headers.indexOf(destlang);
+					// 헤더 행에서 언어 열 찾기
+					const headers = jsonData[0];
+					const sourceCol = headers.indexOf(sourcelang);
+					const destCol = headers.indexOf(destlang);
 
-                        if (sourceCol === -1 || destCol === -1) {
-                            throw new Error(`Language columns not found: ${sourcelang}, ${destlang}`);
-                        }
+					if (sourceCol === -1 || destCol === -1) {
+						throw new Error(`Language columns not found: ${sourcelang}, ${destlang}`);
+					}
 
-                        // 데이터 변환
-                        for (let i = 1; i < jsonData.length; i++) {
-                            const sourceValue = (jsonData[i][sourceCol] ?? "").toString().toLowerCase();
-                            const destValue = (jsonData[i][destCol] ?? "").toString().toLowerCase();
-                            if (sourceValue && destValue) { // sourceValue와 destValue가 모두 존재하는지 확인
-                                pairs[index][sourceValue] = destValue;
-                            }
-                        }
-                    });
+					// 데이터 변환
+					for (let i = 1; i < jsonData.length; i++) {
+						const sourceValue = (jsonData[i][sourceCol] ?? "").toString().toLowerCase();
+						const destValue = (jsonData[i][destCol] ?? "").toString().toLowerCase();
+						if (sourceValue && destValue) { // sourceValue와 destValue가 모두 존재하는지 확인
+							pairs[index][sourceValue] = destValue;
+						}
+					}
+				});
 
-                    // 입력 텍스트 변환
-                    const lines = textInput.split("\n");
-                    const transformedLines = lines.map(line => {
-                        let lowerline = line.toLowerCase().trim();
-                        pairs.forEach(pair => {
-                            Object.keys(pair).reverse().forEach(key => {
-                                lowerline = lowerline.split(key).join(pair[key]);
-                            });
-                        });
-                        return lowerline;
-                    });
+				// convert pairs to arrays of [key, value] and sort by key length
+				pairs.forEach((pair, index) => {
+					const sortedPairs = Object.entries(pair).sort((a, b) => b[0].length - a[0].length);
+					pairs[index] = sortedPairs.reduce((acc, [key, value]) => {
+						acc[key] = value;
+						return acc;
+					}, {});
+				});
 
-                    const transformedText = transformedLines.join("\n");
-                    document.getElementById('textOutput').value = transformedText;
-                })
-                .catch(error => console.error('Error fetching the Excel file:', error));
-        });
+				// 입력 텍스트 변환
+				const lines = textInput.split("\n");
+				const transformedLines = lines.map(line => {
+					let lowerline = line.toLowerCase().trim();
+					pairs.forEach(pair => {
+						Object.keys(pair).forEach(key => {
+							lowerline = lowerline.split(key).join(pair[key]);
+						});
+					});
+					return lowerline;
+				});
 
-        document.getElementById('copyButton').addEventListener('click', () => {
-            const textOutput = document.getElementById('textOutput');
+				const transformedText = transformedLines.join("\n");
+				document.getElementById('textOutput').value = transformedText;
+			})
+			.catch(error => console.error('Error fetching the Excel file:', error));
+	});
 
-            // Select the text inside the textarea
-            textOutput.select();
-            textOutput.setSelectionRange(0, 99999);  // For mobile devices
+document.getElementById('copyButton').addEventListener('click', () => {
+    const textOutput = document.getElementById('textOutput');
 
-            // Copy the text to the clipboard
-            document.execCommand('copy');
+    // Select the text inside the textarea
+    textOutput.select();
+    textOutput.setSelectionRange(0, 99999);  // For mobile devices
 
-            // Optionally, you can provide user feedback
-            alert('텍스트가 클립보드에 복사되었습니다!');
-        });
+    // Copy the text to the clipboard
+    document.execCommand('copy');
+
+    // Optionally, you can provide user feedback
+    alert('텍스트가 클립보드에 복사되었습니다!');
+});
     </script>
 </body>
 </html>
